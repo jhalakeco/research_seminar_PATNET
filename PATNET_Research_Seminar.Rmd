@@ -1,0 +1,68 @@
+---
+title: "PATNET Seminar Project"
+author: "Jhalak Gope"
+date: '2022-06-21'
+output:
+  html_document:
+    theme: yeti
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+## General Data Preparation
+### Loading Libraries
+```{r,echo=FALSE}
+library(dplyr)
+library(sna)
+library(network)
+```
+
+### Loading Dataset
+```{r, echo = TRUE}
+load("res_sem.RData")
+```
+### Data cleaning
+```{r, echo=TRUE}
+IPC3 <- substr(joined_IPC_Inv$IPC, start = 1, stop = 4) #extracting the IPC3 from the original sorted dataset
+IPC3 <- as.data.frame(IPC3) #defining the character vector as a dataframe
+data_final <- cbind(joined_IPC_Inv, IPC3) #combining the newly created IPC3 containing dataframe with the main dataframe
+rm(joined_IPC_Inv) #removing the dataset to free memory
+data_final <- subset(data_final, select = -c(IPC,ctry_code,reg_code)) # dropping columns
+colnames(data_final)[colnames(data_final)=="IPC"] <- "IPC3" #changing the column name to IPC3head
+data_final <- (data_final %>% 
+                 filter(IPC3=="F03D")) #creating subset of Wind Energy Industry (F03D)
+data_final_F03D <- (data_final %>% 
+                 filter(app_year>= 1996 & app_year <= 2016)) #limiting years from 1996 to 2016
+data <- (data_final_F03D %>% 
+           mutate(city = replace(city, city == "Frankfurt am Main", "Frankfurt"))) #Cleaning the data, changing Frankfurt am Main to Frankfurt
+data_1 <- (data %>%
+           mutate(city = replace(city, city == "", NA)))#making the empty values NA
+data_2 <- na.omit(data_1) #getting rid of NA values
+new_data <-(data_2 %>% 
+              filter(city %in% c("Munich","Berlin","Darmstadt","Hamburg","Stuttgart","Erlangen","Dresden","Frankfurt","Karlsruhe","Achen"))) #keeping only 10 cities
+new_data <- new_data[!duplicated(new_data),] #getting rid of duplicate rows
+```
+## Network Data Preparation
+### City and Inventor's network
+```{r, echo=TRUE}
+inv_aff <- (new_data %>% 
+              select("appln_id","city"))
+inv_aff_2mode <- table(inv_aff)
+dim(inv_aff_2mode)
+inv_aff_adj <- inv_aff_2mode %*% t(inv_aff_2mode)
+dim(inv_aff_adj)
+class(inv_aff_adj)
+inv_aff_nw <-  network(inv_aff_adj,matrix.type="adjacency",directed=F)  # convert into 'network' format
+print.network(inv_aff_nw)                                               # Basic information about the network
+```
+## Plotting Networks
+### City and Inventor's network
+```{r, echo=FALSE}
+
+plot.network(inv_aff_nw, displayisolates = T) + title("Network of the city and the patent applications")
+```
+
+
