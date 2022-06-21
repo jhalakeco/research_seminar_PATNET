@@ -46,7 +46,7 @@ new_data <- new_data[!duplicated(new_data),]
 
 #####
 load("data_f03D.RData")
-View(data_1)
+
 
 
 #### general mapping ############################################
