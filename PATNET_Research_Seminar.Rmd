@@ -5,27 +5,29 @@ date: '2022-06-21'
 output:
   html_document:
     theme: yeti
+    toc_depth: 3
     toc: true
     toc_float: true
 ---
 
 ```{r setup, include=TRUE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 ```
 ## General Data Preparation
 ### Loading Libraries
-```{r,echo=FALSE}
+```{r, warning=FALSE, results="hide"}
 library(dplyr)
 library(sna)
 library(network)
+library(networkD3)
 ```
 
 ### Loading Dataset
-```{r, echo = TRUE}
+```{r}
 load("res_sem.RData")
 ```
 ### Data cleaning
-```{r, echo=TRUE}
+```{r}
 IPC3 <- substr(joined_IPC_Inv$IPC, start = 1, stop = 4) #extracting the IPC3 from the original sorted dataset
 IPC3 <- as.data.frame(IPC3) #defining the character vector as a dataframe
 data_final <- cbind(joined_IPC_Inv, IPC3) #combining the newly created IPC3 containing dataframe with the main dataframe
@@ -46,23 +48,64 @@ new_data <-(data_2 %>%
 new_data <- new_data[!duplicated(new_data),] #getting rid of duplicate rows
 ```
 ## Network Data Preparation
-### City and Inventor's network
-```{r, echo=TRUE}
+### Inventor's network
+```{r}
 inv_aff <- (new_data %>% 
-              select("appln_id","city"))
+              select("appln_id","person_id"))
 inv_aff_2mode <- table(inv_aff)
 dim(inv_aff_2mode)
 inv_aff_adj <- inv_aff_2mode %*% t(inv_aff_2mode)
 dim(inv_aff_adj)
 class(inv_aff_adj)
-inv_aff_nw <-  network(inv_aff_adj,matrix.type="adjacency",directed=F)  # convert into 'network' format
+inv_aff_nw <-  network(inv_aff_adj,
+                       matrix.type="adjacency",
+                       directed=T)  # convert into 'network' format
 print.network(inv_aff_nw)                                               # Basic information about the network
 ```
-## Plotting Networks
-### City and Inventor's network
-```{r, echo=FALSE}
-
-plot.network(inv_aff_nw, displayisolates = T) + title("Network of the city and the patent applications")
+### City's network
+```{r}
+inv_city <- (new_data %>% 
+               select("city","appln_id"))
+inv_city_2mode <-  table(inv_city)   # cross tabulate -> 2-mode sociomatrix
+dim(inv_city_2mode)
+inv_city_adj <- inv_city_2mode %*% t(inv_city_2mode)
+dim(inv_city_adj)
+class(inv_city_adj)
+#plotting
+inv_city_nw <-  network(inv_city_adj,
+                        matrix.type="adjacency",
+                        directed=T)  # convert into 'network' format
+print.network(inv_city_nw) 
 ```
 
+## Plotting Networks
+### Inventor's network
+```{r}
+par(mar=c(0,0,1,0))
+plot.network(inv_aff_nw,
+             displayisolates = T) + 
+  title("Network of the inventors of all cities")
 
+par(mar=c(0,0,0,0))
+simpleNetwork(inv_aff,
+              nodeColour = "blue",
+              linkColour = "black",
+              fontSize = 12,
+              opacity = 100,
+              zoom = TRUE)
+```
+### City's network
+```{r}
+par(mar=c(0,0,1,0))
+plot.network(inv_city_nw, 
+             displayisolates = T) +
+  title("Network of the cities")
+
+par(mar=c(0,0,0,0))
+simpleNetwork(inv_city,
+              nodeColour = "blue",
+              linkColour = "black",
+              fontSize = 12,
+              opacity = 100,
+              zoom = TRUE)
+```

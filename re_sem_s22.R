@@ -71,11 +71,11 @@ spplot(map_and_data) +
 
 library(igraph)
 library(network)
+library(sna)
 
-
-## applications and city networks
+## applications and invetors networks
 inv_aff <- (new_data %>% 
-              select("appln_id","city"))
+              select("appln_id","person_id"))
 inv_aff_2mode <- table(inv_aff)
 dim(inv_aff_2mode)
 View(head(inv_aff_2mode,10))
@@ -84,38 +84,61 @@ dim(inv_aff_adj)
 class(inv_aff_adj)
 
 par(mar=c(0,0,0,0))
-inv_aff_nw <-  network(inv_aff_adj,matrix.type="adjacency",directed=F)  # convert into 'network' format
+inv_aff_nw <-  network(inv_aff_adj,
+                       matrix.type="adjacency",
+                       directed=F)  # convert into 'network' format
 print.network(inv_aff_nw)                                               # Basic information about the network
 # plotting
 plot.network(inv_aff_nw,
-             hyper = T,
-             label = network.vertex.names(inv_app_nw),
              displayisolates = T)
 
 
 
 
 ## city networks
-inv_app <- (inv_aff %>% 
+inv_city <- (new_data %>% 
                select("city","appln_id"))
-inv_app_2mode <-  table(inv_app)   # cross tabulate -> 2-mode sociomatrix
-dim(inv_app_2mode)
-inv_app_adj <- inv_app_2mode %*% t(inv_app_2mode)
-dim(inv_app_adj)
-class(inv_app_adj)
-View(head(inv_app_2mode,10))
+inv_city_2mode <-  table(inv_app)   # cross tabulate -> 2-mode sociomatrix
+dim(inv_city_2mode)
+inv_city_adj <- inv_city_2mode %*% t(inv_city_2mode)
+dim(inv_city_adj)
+class(inv_city_adj)
+View(head(inv_city_2mode,10))
 #plotting
 par(mar=c(0,0,0,0))
-inv_app_nw <-  network(inv_app_adj,  matrix.type="adjacency",directed=T)  # convert into 'network' format
-print.network(inv_app_nw)                                               # Basic information about the network
+inv_city_nw <-  network(inv_city_adj,
+                        matrix.type="adjacency",
+                        directed=T)  # convert into 'network' format
+print.network(inv_city_nw)                                               # Basic information about the network
 # plotting
-plot.network(inv_app_nw, label = network.vertex.names(inv_app_nw), displayisolates = T)
+plot.network(inv_city_nw, label = network.vertex.names(inv_app_nw), displayisolates = T)
+
+install.packages("networkD3")
+library(networkD3)
+par(mar=c(0,0,0,0))
+simpleNetwork(inv_aff,
+              nodeColour = "blue",
+              linkColour = "black",
+              fontSize = 12,
+              opacity = 100,
+              zoom = TRUE)
+forceNetwork(inv_aff$person_id,
+             inv_aff$appln_id,
+             source=,
+             NodeID = "name",
+             Group = "group")
+
+
+radialNetwork()
+
+?
+####################################################################################################################
+
 
 ?plot.network
 ?network()
 
-
-
+install.packages("plotly")
 
 ## adjacency matrix
 inv_adj <- inv_2mode %*% t(inv_2mode)
