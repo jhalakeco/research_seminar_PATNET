@@ -39,14 +39,15 @@ data_1 <- (data %>%
 data_2 <- na.omit(data_1) #getting rid of NA values
 
 # keeping only 10 cities
-
+View(new_data)
 new_data <-(data_2 %>% 
               filter(city %in% c("Munich","Berlin","Darmstadt","Hamburg","Stuttgart","Erlangen","Dresden","Frankfurt","Karlsruhe","Aachen")))
 new_data <- new_data[!duplicated(new_data),]
 
 #####
+save(new_data, file="patnet_project.RData")
 load("data_f03D.RData")
-
+load("patnet_project.RData")
 
 
 #### general mapping ############################################
@@ -90,15 +91,18 @@ inv_aff_nw <-  network(inv_aff_adj,
 print.network(inv_aff_nw)                                               # Basic information about the network
 # plotting
 plot.network(inv_aff_nw,
-             displayisolates = T)
+             displayisolates = T,
+             uselen = T,
+             mode = "fruchtermanreingold")
 
+?plot.network
 
 
 
 ## city networks
 inv_city <- (new_data %>% 
                select("city","appln_id"))
-inv_city_2mode <-  table(inv_app)   # cross tabulate -> 2-mode sociomatrix
+inv_city_2mode <-  table(inv_city)   # cross tabulate -> 2-mode sociomatrix
 dim(inv_city_2mode)
 inv_city_adj <- inv_city_2mode %*% t(inv_city_2mode)
 dim(inv_city_adj)
@@ -109,36 +113,43 @@ par(mar=c(0,0,0,0))
 inv_city_nw <-  network(inv_city_adj,
                         matrix.type="adjacency",
                         directed=T)  # convert into 'network' format
-print.network(inv_city_nw)                                               # Basic information about the network
+print.network(inv_city_nw) # Basic information about the network
 # plotting
-plot.network(inv_city_nw, label = network.vertex.names(inv_app_nw), displayisolates = T)
+plot.network(inv_city_nw, label = network.vertex.names(inv_city_nw), displayisolates = T)
 
-install.packages("networkD3")
+
+city_net_extra <- network(inv_cityD3)
+plot.network(city_net_extra,
+             label = network.vertex.names(inv_city_nw),
+             interactive =T)
+
+##### Preparing dataset for Network D3 ######
+
+inv_cityD3 <- (new_data %>% 
+               select("city","appln_id") %>% 
+               count(appln_id, sort = F))
+
+
+
+
+
+
+
+
+
+
+
+########## NetworkD3 plottings ###########
+
 library(networkD3)
 par(mar=c(0,0,0,0))
-simpleNetwork(inv_aff,
-              nodeColour = "blue",
-              linkColour = "black",
+simpleNetwork(inv_cityD3,
               fontSize = 12,
-              opacity = 100,
+              opacity = 10,
               zoom = TRUE)
-forceNetwork(inv_aff$person_id,
-             inv_aff$appln_id,
-             source=,
-             NodeID = "name",
-             Group = "group")
 
 
-radialNetwork()
-
-?
 ####################################################################################################################
-
-
-?plot.network
-?network()
-
-install.packages("plotly")
 
 ## adjacency matrix
 inv_adj <- inv_2mode %*% t(inv_2mode)
@@ -162,7 +173,7 @@ invp_nw <- network(inv_adj, type = "adjacency", directed = F, ignore.eval = F, n
 print.network(invp_nw)
 plot.network(invp_nw, displayisolates = F, edge.lwd = get.edge.value(invp_nw,"strength"))
 
-gden(invp_nw)
+gden(inv_city_nw)
 
 
 #--------- igraph -------

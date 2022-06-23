@@ -44,7 +44,7 @@ data_1 <- (data %>%
            mutate(city = replace(city, city == "", NA)))#making the empty values NA
 data_2 <- na.omit(data_1) #getting rid of NA values
 new_data <-(data_2 %>% 
-              filter(city %in% c("Munich","Berlin","Darmstadt","Hamburg","Stuttgart","Erlangen","Dresden","Frankfurt","Karlsruhe","Achen"))) #keeping only 10 cities
+              filter(city %in% c("Munich","Berlin","Darmstadt","Hamburg","Stuttgart","Erlangen","Dresden","Frankfurt","Karlsruhe","Aachen"))) #keeping only 10 cities
 new_data <- new_data[!duplicated(new_data),] #getting rid of duplicate rows
 ```
 ## Network Data Preparation
@@ -60,7 +60,7 @@ class(inv_aff_adj)
 inv_aff_nw <-  network(inv_aff_adj,
                        matrix.type="adjacency",
                        directed=T)  # convert into 'network' format
-print.network(inv_aff_nw)                                               # Basic information about the network
+print.network(inv_aff_nw) # Basic information about the network
 ```
 ### City's network
 ```{r}
@@ -71,11 +71,15 @@ dim(inv_city_2mode)
 inv_city_adj <- inv_city_2mode %*% t(inv_city_2mode)
 dim(inv_city_adj)
 class(inv_city_adj)
-#plotting
 inv_city_nw <-  network(inv_city_adj,
                         matrix.type="adjacency",
                         directed=T)  # convert into 'network' format
-print.network(inv_city_nw) 
+print.network(inv_city_nw) # basic information about the network
+
+
+
+
+
 ```
 
 ## Plotting Networks
@@ -98,14 +102,15 @@ simpleNetwork(inv_aff,
 ```{r}
 par(mar=c(0,0,1,0))
 plot.network(inv_city_nw, 
-             displayisolates = T) +
+             displayisolates = T,
+             label = network.vertex.names(inv_city_nw)) +
   title("Network of the cities")
 
 par(mar=c(0,0,0,0))
 simpleNetwork(inv_city,
               nodeColour = "blue",
-              linkColour = "black",
+              linkColour = "gray",
               fontSize = 12,
-              opacity = 100,
+              opacity = 50,
               zoom = TRUE)
 ```
