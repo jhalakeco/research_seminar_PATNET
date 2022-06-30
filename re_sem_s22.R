@@ -1,106 +1,116 @@
-#####
-#Data preparation
+##### Data preparation #####
 
 # loading libraries
 library(dplyr)
 library(igraph)
-
+library(igraphdata)
+library(network)
+library(sna)
+library(intergraph)
 
 # loading datasets for wind energy IPC3, inventors and regions
 load("res_sem.RData")
 
 #sub stringing the IPC3 from IPC
-IPC3 <- substr(joined_IPC_Inv$IPC, start = 1, stop = 4) #extracting the IPC3 from the original sorted dataset
-IPC3 <- as.data.frame(IPC3) # defining it as a dataframe
-data_final <- cbind(joined_IPC_Inv, IPC3) # combining the newly created IPC3 containing dataframe with the main dataframe
+IPC4 <- substr(joined_IPC_Inv$IPC, start = 1, stop = 4) #extracting the IPC3 from the original sorted dataset
+IPC4 <- as.data.frame(IPC4) # defining it as a dataframe
+data_final <- cbind(joined_IPC_Inv, IPC4) # combining the newly created IPC3 containing dataframe with the main dataframe
 rm(joined_IPC_Inv) # removing the dataset to free memory
-data_final <- subset(data_final, select = -c(IPC,ctry_code,reg_code)) # dropping columns
-colnames(data_final)[colnames(data_final)=="IPC"] <- "IPC3" # changing the column name to IPC3head
+data_final <- subset(data_final, select = -c(IPC,ctry_code)) # dropping columns
+colnames(data_final)[colnames(data_final)=="IPC"] <- "IPC4" # changing the column name to IPC3head
 
-#####
+
+
+
+
+
+##### Data cleaning ####
 
 # final cleaning by keeping FD03
 data_final <- (data_final %>% 
-                 filter(IPC3=="F03D")) # creating subset of Wind Energy Industry (F03D)
-
+                 filter(IPC4=="F03D")) # creating subset of Wind Energy Industry (F03D)
 
 data_final_F03D <- (data_final %>% 
                  filter(app_year>= 1996 & app_year <= 2016)) # limiting years from 1996 to 2016
 
-#####
-#Cleaning the data, changing Frankfurt am Main to Frankfurt
-
-data <- (data_final_F03D %>%
-           mutate(city = replace(city, city == "Frankfurt am Main", "Frankfurt")))
-
 # now getting rid of empty city values
-data_1 <- (data %>%
+data_1 <- (data_final_F03D %>%
            mutate(city = replace(city, city == "", NA)))#making the empty values NA
 data_2 <- na.omit(data_1) #getting rid of NA values
 
-# keeping only 10 cities
-View(new_data)
-new_data <-(data_2 %>% 
-              filter(city %in% c("Munich","Berlin","Darmstadt","Hamburg","Stuttgart","Erlangen","Dresden","Frankfurt","Karlsruhe","Aachen")))
-new_data <- new_data[!duplicated(new_data),]
+# getting rid of duplicate values
+data_main <- data_2[!duplicated(data_2),]
+View(data_main)
 
-#####
-save(new_data, file="patnet_project.RData")
-load("data_f03D.RData")
-load("patnet_project.RData")
+# ranking cities according to patents
+data_main_city_rank <- (data_main %>%
+                          group_by(city) %>% 
+                          count(city, sort = TRUE,  name = "patents"))
+
+# keeping first 15 patent owning cities
+data_main_15 <- head(data_main_city_rank,15)
+
+
+
+
 
 
 #### general mapping ############################################
-plot(mymap)
-mymap <- st_read ("C:/Users/jhala/Downloads/gadm40_DEU_shp/gadm40_DEU_4.shp", stringsAsFactors =F) # importing the shape file
+
+library(sf)
+library(leaflet)
+library(ggplot2)
+
+
+
+mymap <- st_read ("C:\Users\jhala\Downloads\gadm40_DEU_4.shp", stringsAsFactors =F) # importing the shape file
 
 colnames(mymap)[colnames(mymap)=="NAME_3"] <- "city" # renaming the column name to math with both data frames
-data_final_map <- (data_final %>% 
-                     select("appln_id", "city")) # selecting only city name and appln_id
+data_final_map <- (data_main_city_rank) # selecting only city name and appln_id
 
 map_and_data <- inner_join(mymap, data_final_map)
+map_and_data <- (map_and_data %>% 
+                   filter(!patents==0))
 str(map_and_data)
 
-View(head(map_and_data,10))
+View(head(map_and_data, 5))
 
-spplot(map_and_data) +
+ggplot(map_and_data) +
   geom_sf((aes(fill = appln_id))+
             stat_summary(fun = count, colour ="black"))
-##########
+
+# making spatial data objects
+coordinates(map_and_data) <- map_and_data$geometry
 
 
 
-library(igraph)
-library(network)
-library(sna)
 
-## applications and invetors networks
-inv_aff <- (new_data %>% 
+
+
+
+#### Creating network objects ####
+
+## applications and inventors networks
+inv_aff_all <- (data_main %>% 
               select("appln_id","person_id"))
-inv_aff_2mode <- table(inv_aff)
-dim(inv_aff_2mode)
-View(head(inv_aff_2mode,10))
-inv_aff_adj <- inv_aff_2mode %*% t(inv_aff_2mode)
-dim(inv_aff_adj)
-class(inv_aff_adj)
+inv_aff_all_2mode <- table(inv_aff)
+dim(inv_aff_all_2mode)
+View(head(inv_aff_all_2mode,10))
+inv_aff_all_adj <- inv_aff_all_2mode %*% t(inv_aff_all_2mode)
+dim(inv_aff_all_adj)
+class(inv_aff_all_adj)
 
 par(mar=c(0,0,0,0))
-inv_aff_nw <-  network(inv_aff_adj,
+inv_aff_all_nw <-  network(inv_aff_all_adj,
                        matrix.type="adjacency",
                        directed=F)  # convert into 'network' format
-print.network(inv_aff_nw)                                               # Basic information about the network
+print.network(inv_aff_all_nw) # Basic information about the network
 # plotting
-plot.network(inv_aff_nw,
-             displayisolates = T,
-             uselen = T,
-             mode = "fruchtermanreingold")
-
-?plot.network
-
-
+plot.network(inv_aff_all_nw,
+             displayisolates = T)
 
 ## city networks
-inv_city <- (new_data %>% 
+inv_city <- (data_main %>% 
                select("city","appln_id"))
 inv_city_2mode <-  table(inv_city)   # cross tabulate -> 2-mode sociomatrix
 dim(inv_city_2mode)
@@ -118,28 +128,59 @@ print.network(inv_city_nw) # Basic information about the network
 plot.network(inv_city_nw, label = network.vertex.names(inv_city_nw), displayisolates = T)
 
 
+##### igraph and igraphdata ####
+
+library(intergraph) # Dr. Graf
+inv_city_ig <- asIgraph(inv_city_nw) # Dr. Graf
+class(inv_city_ig)
+
+get.adjacency(inv_city_ig)
+
+# plotting graph
+igraph.options(vertex.size = 10)
+plot(inv_city_ig,
+     layout = layout.kamada.kawai(inv_city_ig),
+     vertex.label = V(inv_city$city))
+
+
+
+
+city_pat <- data.frame(city = names(diag(inv_city_adj)), pat = diag(inv_city_adj)) # Dr.Graf
+city_pat
+
 city_net_extra <- network(inv_cityD3)
 plot.network(city_net_extra,
              label = network.vertex.names(inv_city_nw),
              interactive =T)
 
+
+
+
+
+
 ##### Preparing dataset for Network D3 ######
 
-inv_cityD3 <- (new_data %>% 
-               select("city","appln_id") %>% 
-               count(appln_id, sort = F))
+D3_1996_Berlin <- (data_main %>%
+              filter(app_year==1996, city=="Berlin") %>% 
+                select(inv_name, appln_id))
+D3_2013_Berlin <- (data_main %>%
+                     filter(app_year==2012, city=="berlin") %>% 
+                     select(inv_name, appln_id))
+
+D3_count <- (data_main %>%
+               group_by(app_year) %>%
+               summarise(n_appls = n_distinct(appln_id)) %>%
+               filter(app_year >= 2000 & app_year <= 2015) %>%
+               mutate(app_year = as.factor(app_year)))
 
 
+plot(D3_count)
 
 
+?gden
 
 
-
-
-
-
-
-########## NetworkD3 plottings ###########
+##### NetworkD3 plotings ###########
 
 library(networkD3)
 par(mar=c(0,0,0,0))
@@ -149,7 +190,7 @@ simpleNetwork(inv_cityD3,
               zoom = TRUE)
 
 
-####################################################################################################################
+##### Network measurements
 
 ## adjacency matrix
 inv_adj <- inv_2mode %*% t(inv_2mode)
