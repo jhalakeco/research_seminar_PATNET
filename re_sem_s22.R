@@ -1,12 +1,16 @@
-##### Data preparation #####
+# Data preparation ----
 
 # loading libraries
 library(dplyr)
 library(igraph)
 library(igraphdata)
 library(network)
+library(networkD3)
 library(sna)
 library(intergraph)
+library(sp)
+library(RColorBrewer)
+library(data.table)
 
 # loading datasets for wind energy IPC3, inventors and regions
 load("res_sem.RData")
@@ -15,132 +19,220 @@ load("res_sem.RData")
 IPC4 <- substr(joined_IPC_Inv$IPC, start = 1, stop = 4) #extracting the IPC3 from the original sorted dataset
 IPC4 <- as.data.frame(IPC4) # defining it as a dataframe
 data_final <- cbind(joined_IPC_Inv, IPC4) # combining the newly created IPC3 containing dataframe with the main dataframe
-rm(joined_IPC_Inv) # removing the dataset to free memory
+rm(joined_IPC_Inv) & rm(IPC4) # removing the dataset to free memory
 data_final <- subset(data_final, select = -c(IPC,ctry_code)) # dropping columns
-colnames(data_final)[colnames(data_final)=="IPC"] <- "IPC4" # changing the column name to IPC3head
 
 
+colnames(data_final)
 
 
-
-
-##### Data cleaning ####
+# Data cleaning ----
 
 # final cleaning by keeping FD03
-data_final <- (data_final %>% 
+data <- (data_final %>% 
                  filter(IPC4=="F03D")) # creating subset of Wind Energy Industry (F03D)
-
-data_final_F03D <- (data_final %>% 
-                 filter(app_year>= 1996 & app_year <= 2016)) # limiting years from 1996 to 2016
+rm(data_final)
+data <- (data %>% 
+           filter(app_year>= 1996 & app_year <= 2016)) # limiting years from 1996 to 2016
 
 # now getting rid of empty city values
-data_1 <- (data_final_F03D %>%
+data <- (data %>%
            mutate(city = replace(city, city == "", NA)))#making the empty values NA
-data_2 <- na.omit(data_1) #getting rid of NA values
+data <- na.omit(data) #getting rid of NA values
 
 # getting rid of duplicate values
-data_main <- data_2[!duplicated(data_2),]
-View(data_main)
+data_main <- data[!duplicated(data),]
+
 
 # ranking cities according to patents
-data_main_city_rank <- (data_main %>%
-                          group_by(city) %>% 
-                          count(city, sort = TRUE,  name = "patents"))
+data_main_city_rank <- (data_main %>% 
+                          group_by(city) %>%
+                          count(city, sort = TRUE,  name = "patents")) #ranking the cities according to the number of patent applications
 
-# keeping first 15 patent owning cities
-data_main_15 <- head(data_main_city_rank,15)
-
-
-
+data_main_15 <- head(data_main_city_rank,15) # keeping first 15 patent owning cities in ranked format
+data_main_15_attr <- (data_main %>%
+                     filter(city %in% c("Aurich","Hamburg","Berlin","Salzbergen","Rendsburg","Rheine","Kiel","Aachen","Munchen","Norderstedt","Osnabruck","Bremen","Erlangen","Dresden","Munster"))) # keeping the most 15 patent owning cities with all attributes
 
 
 
-#### general mapping ############################################
 
+
+
+
+# General mapping ----
+
+install.packages("ggmap")
+library(ggmap)
 library(sf)
 library(leaflet)
 library(ggplot2)
+map_gDE <- get_googlemap("Germany", zoom = 8, maptype = "terrain")
+
+?register_google
+
+## loading shapefile
+shape_de <- read_sf("./shape_files_DE/gadm40_DEU_4.shp") # loading shape file for Germany
+
+plot(shape_de, max.plot = 3)
+View(head(map_de,10))
+colnames(shape_de)[7] <- "city"
+map_de <- merge(shape_de, data_main, by="city")
+
+plot(st_geometry(map_de))
 
 
+# Creating network objects (NETWORK and SNA)----
 
-mymap <- st_read ("C:\Users\jhala\Downloads\gadm40_DEU_4.shp", stringsAsFactors =F) # importing the shape file
-
-colnames(mymap)[colnames(mymap)=="NAME_3"] <- "city" # renaming the column name to math with both data frames
-data_final_map <- (data_main_city_rank) # selecting only city name and appln_id
-
-map_and_data <- inner_join(mymap, data_final_map)
-map_and_data <- (map_and_data %>% 
-                   filter(!patents==0))
-str(map_and_data)
-
-View(head(map_and_data, 5))
-
-ggplot(map_and_data) +
-  geom_sf((aes(fill = appln_id))+
-            stat_summary(fun = count, colour ="black"))
-
-# making spatial data objects
-coordinates(map_and_data) <- map_and_data$geometry
-
-
-
-
-
-
-
-#### Creating network objects ####
-
-## applications and inventors networks
+## A1. Inventors networks for all cities ----
 inv_aff_all <- (data_main %>% 
               select("appln_id","person_id"))
-inv_aff_all_2mode <- table(inv_aff)
+inv_aff_all_2mode <- table(inv_aff_all)
 dim(inv_aff_all_2mode)
-View(head(inv_aff_all_2mode,10))
 inv_aff_all_adj <- inv_aff_all_2mode %*% t(inv_aff_all_2mode)
 dim(inv_aff_all_adj)
 class(inv_aff_all_adj)
-
-par(mar=c(0,0,0,0))
 inv_aff_all_nw <-  network(inv_aff_all_adj,
                        matrix.type="adjacency",
                        directed=F)  # convert into 'network' format
 print.network(inv_aff_all_nw) # Basic information about the network
-# plotting
-plot.network(inv_aff_all_nw,
-             displayisolates = T)
 
-## city networks
-inv_city <- (data_main %>% 
-               select("city","appln_id"))
+
+## A2. City networks: 15 most innovative cities ----
+inv_city <- (data_main_15_attr %>% 
+               select(appln_id,city))
 inv_city_2mode <-  table(inv_city)   # cross tabulate -> 2-mode sociomatrix
 dim(inv_city_2mode)
 inv_city_adj <- inv_city_2mode %*% t(inv_city_2mode)
 dim(inv_city_adj)
 class(inv_city_adj)
-View(head(inv_city_2mode,10))
+inv_city_nw <-  network(inv_city_adj,
+                        matrix.type="adjacency",
+                        directed=F)  # convert into 'network' format
+class(inv_city_nw)
+
+
+## A3. Inventor's (person's) network ----
+
+# inventor's data cleaning
+inv_person <- (data_main_15_attr %>% 
+                 select(city,inv_name) %>% 
+                 group_by(city)) # sub-setting the data for inventors from 15 cities
+
+
+# parsing the person's network data to have clean and non-duplicated values
+inv_person_parsed <- inv_person
+length(unique(inv_person_parsed$inv_name))
+inv_person_parsed$inv_name_small <- tolower(inv_person_parsed$inv_name)
+inv_person_parsed$inv_name_small <- sub(", prof. dr.-ing.","", inv_person_parsed$inv_name_small)
+length(unique(inv_person_parsed$inv_name_small))
+inv_person_parsed$inv_name_small <- sub(", dr.-ing.","", inv_person_parsed$inv_name_small)
+length(unique(inv_person_parsed$inv_name_small))
+inv_person_parsed$inv_name_small <- sub(", dipl.-ing.","", inv_person_parsed$inv_name_small)
+length(unique(inv_person_parsed$inv_name_small))
+inv_person_parsed$inv_name_small <- sub(", -ing.","", inv_person_parsed$inv_name_small)
+length(unique(inv_person_parsed$inv_name_small))
+inv_person_parsed$inv_name_small <- sub(", dr.","", inv_person_parsed$inv_name_small)
+length(unique(inv_person_parsed$inv_name_small))
+inv_person_parsed$inv_name_small <- sub(" dr.","", inv_person_parsed$inv_name_small)
+length(unique(inv_person_parsed$inv_name_small))
+
+# new network changed size
+length(unique(inv_person_parsed$inv_name_small))/length(unique(inv_person_parsed$inv_name))
+
+# getting rid of original inventor names
+inv_person_parsed$inv_name <- inv_person_parsed$inv_name_small
+
+# removing third column
+inv_person_parsed <- subset(inv_person_parsed, select = -c(inv_name_small))
+
+# creating network with the cleaned data
+inv_person_2mode <- table(inv_person_parsed) # making 2 mode sociomatrix
+dim(inv_person_2mode)
+class(inv_person_2mode)
+inv_person_adj <- inv_person_2mode %*% t(inv_person_2mode)
+dim(inv_person_adj)
+class(inv_person_adj)
+
+inv_person_adj <- diag.remove(inv_person_adj, remove.val = 0)
+inv_person_nw <- network(inv_person_adj,
+                         matrix.type="adjacency",
+                         directed = FALSE,
+                         ignore.eval=FALSE,
+                         names.eval="strength")
+
+
+# Converting network objects into igraph object ----
+# detaching packages to avoid conflicts between package operations
+detach(package:sna)
+detach(package:network)
+
+
+## A1 converting the network for all the inventors----
+
+inv_aff_ig <- asIgraph(inv_aff_all_nw)
+class(inv_aff_all)
+
+### A1 plotting ----
+plot(inv_aff_ig,
+     layout = layout.auto(inv_aff_ig),
+     vertex.size = 4,
+     vertex.label = NA)
+
+
+## A2. Converting the network package object into igraph object (for 15 cities)----
+inv_city_ig <- asIgraph(inv_city_nw)
+class(inv_city_ig)
+
+inv_city_ig <- (inv_city_ig %>% 
+                  set_vertex_attr(
+                    name = "vertex.names",
+                    value = c("Aurich","Hamburg","Berlin","Salzbergen","Rendsburg","Rheine","Kiel","Aachen","Munchen","Norderstedt","Osnabruck","Bremen","Erlangen","Dresden","Munster")
+                  ))
+V(inv_city_ig)
+
+### A2 plotting ----
+plot(inv_city_ig,
+     vertex.color=rainbow(76),
+     vertext.size=V(inv_city_ig)*0.4,
+     vertex.label.cex = 1,
+     layout=layout.kamada.kawai)
+
+
+
+
 #plotting
 par(mar=c(0,0,0,0))
 inv_city_nw <-  network(inv_city_adj,
                         matrix.type="adjacency",
                         directed=T)  # convert into 'network' format
 print.network(inv_city_nw) # Basic information about the network
+
+
 # plotting
 plot.network(inv_city_nw, label = network.vertex.names(inv_city_nw), displayisolates = T)
 
 
-##### igraph and igraphdata ####
+
+
+
+
+# igraph and igraph data ----
 
 library(intergraph) # Dr. Graf
 inv_city_ig <- asIgraph(inv_city_nw) # Dr. Graf
 class(inv_city_ig)
 
-get.adjacency(inv_city_ig)
 
-# plotting graph
+
+
+# plotting graph for igraph
 igraph.options(vertex.size = 10)
 plot(inv_city_ig,
-     layout = layout.kamada.kawai(inv_city_ig),
-     vertex.label = V(inv_city$city))
+     layout = layout.drl(inv_city_ig),
+     vertex.label = inv_city_ig,
+     edge.arrow.size=.8,
+     edge.color="gray",
+     )
 
 
 
@@ -155,32 +247,8 @@ plot.network(city_net_extra,
 
 
 
+# NetworkD3 ----
 
-
-
-##### Preparing dataset for Network D3 ######
-
-D3_1996_Berlin <- (data_main %>%
-              filter(app_year==1996, city=="Berlin") %>% 
-                select(inv_name, appln_id))
-D3_2013_Berlin <- (data_main %>%
-                     filter(app_year==2012, city=="berlin") %>% 
-                     select(inv_name, appln_id))
-
-D3_count <- (data_main %>%
-               group_by(app_year) %>%
-               summarise(n_appls = n_distinct(appln_id)) %>%
-               filter(app_year >= 2000 & app_year <= 2015) %>%
-               mutate(app_year = as.factor(app_year)))
-
-
-plot(D3_count)
-
-
-?gden
-
-
-##### NetworkD3 plotings ###########
 
 library(networkD3)
 par(mar=c(0,0,0,0))
