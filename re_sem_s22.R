@@ -44,6 +44,7 @@ data <- na.omit(data) #getting rid of NA values
 data_main <- data[!duplicated(data),]
 
 
+
 # ranking cities according to patents
 data_main_city_rank <- (data_main %>% 
                           group_by(city) %>%
@@ -52,8 +53,6 @@ data_main_city_rank <- (data_main %>%
 data_main_15 <- head(data_main_city_rank,15) # keeping first 15 patent owning cities in ranked format
 data_main_15_attr <- (data_main %>%
                      filter(city %in% c("Aurich","Hamburg","Berlin","Salzbergen","Rendsburg","Rheine","Kiel","Aachen","Munchen","Norderstedt","Osnabruck","Bremen","Erlangen","Dresden","Munster"))) # keeping the most 15 patent owning cities with all attributes
-
-
 
 
 
@@ -85,7 +84,7 @@ plot(st_geometry(map_de))
 
 ## A1. Inventors networks for all cities ----
 inv_aff_all <- (data_main %>% 
-              select("appln_id","person_id"))
+              select(appln_id,person_id))
 inv_aff_all_2mode <- table(inv_aff_all)
 dim(inv_aff_all_2mode)
 inv_aff_all_adj <- inv_aff_all_2mode %*% t(inv_aff_all_2mode)
@@ -99,7 +98,7 @@ print.network(inv_aff_all_nw) # Basic information about the network
 
 ## A2. City networks: 15 most innovative cities ----
 inv_city <- (data_main_15_attr %>% 
-               select(appln_id,city))
+               select(city,appln_id))
 inv_city_2mode <-  table(inv_city)   # cross tabulate -> 2-mode sociomatrix
 dim(inv_city_2mode)
 inv_city_adj <- inv_city_2mode %*% t(inv_city_2mode)
@@ -110,14 +109,23 @@ inv_city_nw <-  network(inv_city_adj,
                         directed=F)  # convert into 'network' format
 class(inv_city_nw)
 
+####
+get.vertex.attribute(inv_city_nw, "vertex.names") # checking the vertices names
+par(mar=c(0,0,0,0))
+plot.network(inv_city_nw,
+             label = network.vertex.names(inv_city_nw))
+network.density(inv_city_nw)
+
+get.vertex.attribute(inv_city_nw, "vertex.names")
+####
 
 ## A3. Inventor's (person's) network ----
 
 # inventor's data cleaning
 inv_person <- (data_main_15_attr %>% 
-                 select(city,inv_name) %>% 
-                 group_by(city)) # sub-setting the data for inventors from 15 cities
-
+                 select(inv_name,appln_id)) # sub-setting the data for inventors with patents
+inv_per_attr <- (data_main_15_attr %>% 
+                   select(appln_id, city))
 
 # parsing the person's network data to have clean and non-duplicated values
 inv_person_parsed <- inv_person
@@ -155,10 +163,11 @@ class(inv_person_adj)
 
 inv_person_adj <- diag.remove(inv_person_adj, remove.val = 0)
 inv_person_nw <- network(inv_person_adj,
-                         matrix.type="adjacency",
-                         directed = FALSE,
-                         ignore.eval=FALSE,
-                         names.eval="strength")
+                         directed = F)
+par(mar=c(0,0,0,0))
+
+
+get.vertex.attribute(inv_person_nw, "vertex.names")
 
 
 # Converting network objects into igraph object ----
@@ -167,15 +176,16 @@ detach(package:sna)
 detach(package:network)
 
 
-## A1 converting the network for all the inventors----
+## A1 Converting the network for all the inventors----
 
 inv_aff_ig <- asIgraph(inv_aff_all_nw)
 class(inv_aff_all)
 
 ### A1 plotting ----
+set.seed(100)
 plot(inv_aff_ig,
      layout = layout.auto(inv_aff_ig),
-     vertex.size = 4,
+     vertex.size = 2,
      vertex.label = NA)
 
 
@@ -188,28 +198,55 @@ inv_city_ig <- (inv_city_ig %>%
                     name = "vertex.names",
                     value = c("Aurich","Hamburg","Berlin","Salzbergen","Rendsburg","Rheine","Kiel","Aachen","Munchen","Norderstedt","Osnabruck","Bremen","Erlangen","Dresden","Munster")
                   ))
-V(inv_city_ig)
+V(inv_city_ig)$label <- c("Aurich","Hamburg","Berlin","Salzbergen","Rendsburg","Rheine","Kiel","Aachen","Munchen","Norderstedt","Osnabruck","Bremen","Erlangen","Dresden","Munster")
+
 
 ### A2 plotting ----
+set.seed(100)
+par(mar=c(0,0,1,0))
 plot(inv_city_ig,
-     vertex.color=rainbow(76),
-     vertext.size=V(inv_city_ig)*0.4,
-     vertex.label.cex = 1,
-     layout=layout.kamada.kawai)
+     vertex.label=V(inv_city_ig)$city,
+     vertex.color=V(inv_city_ig),
+     vertex.size= degree(inv_city_ig)*3,
+     main="City network according to their density")
+
+eb_inv_city_ig <- cluster_edge_betweenness(inv_city_ig) # calculating betweeness
+plot(eb_inv_city_ig,
+     inv_city_ig,
+     vertex.size=2,)
+#### A2 Centrality measurements----
+centr_degree(
+  inv_city_ig,
+  mode = c("all", "out", "in", "total"),
+  loops = F,
+  normalized = TRUE)
+
+## A3. Converting inventor's network for the 15 cities ----
+
+inv_person_ig <- asIgraph(inv_person_nw)
+class(inv_person_ig)
+set_vertex_attr(graph = inv_person_ig, name = "city", value = "city")
+
+### A3 plotting ----
+eb_inv_person_ig <- cluster_edge_betweenness(inv_person_ig)
+plot(inv_person_ig,
+     vertex.label=NA,
+     vertex.color=V(inv_person_ig),
+     vertex.size=3)
+     #vertex.label= (inv_per_attr$city),
+     
+plot(inv_person_ig,
+     vertex.label = ifelse(degree(inv_person_ig) >= .01, V(inv_person_ig)$label, NA))
 
 
 
 
-#plotting
-par(mar=c(0,0,0,0))
-inv_city_nw <-  network(inv_city_adj,
-                        matrix.type="adjacency",
-                        directed=T)  # convert into 'network' format
-print.network(inv_city_nw) # Basic information about the network
 
+# Top 5 city's innovation scenario over the time ----
+## top 5 city, year 2005 and 2015
 
-# plotting
-plot.network(inv_city_nw, label = network.vertex.names(inv_city_nw), displayisolates = T)
+### Aurich ----
+
 
 
 
