@@ -1,14 +1,15 @@
 # Data preparation ----
 
 # loading libraries
-library(dplyr)
-library(igraph)
-library(igraphdata)
-library(network)
-library(networkD3)
-library(sna)
-library(intergraph)
-library(RColorBrewer)
+suppressMessages(library(dplyr))
+suppressMessages(library(igraph))
+suppressMessages(library(igraphdata))
+suppressMessages(library(network))
+suppressMessages(library(sna))
+suppressMessages(library(intergraph))
+suppressMessages(library(RColorBrewer))
+suppressMessages(library(plotly))
+suppressMessages(library(ggsci))
 
 # loading datasets for wind energy IPC3, inventors and regions
 load("res_sem.RData")
@@ -50,9 +51,22 @@ data_main_15 <- head(data_main_city_rank,15) # keeping first 15 patent owning ci
 data_main_15_attr <- (data_main %>%
                      filter(city %in% c("Aurich","Hamburg","Berlin","Salzbergen","Rendsburg","Rheine","Kiel","Aachen","Munchen","Norderstedt","Osnabruck","Bremen","Erlangen","Dresden","Munster"))) # keeping the most 15 patent owning cities with all attributes
 
+## plotting 15 most innovative cities
 
+plot_ly(data_main_15,
+        x = data_main_15$city,
+        y = data_main_15$patents,
+        type = "bar",
+        color = data_main_15$city,
+        colors=pal_jco()(10)) %>% 
+  layout(title = "Top 15 German Cities in Wind Motor Innovation",
+         xaxis = list(title = "",
+                      categoryorder = "array",
+                      categoryarray = ~city),
+         yaxis = list(title = "Number of patents")
+         )
 
-
+?plot_ly
 
 # General mapping ----
 
