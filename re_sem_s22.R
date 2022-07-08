@@ -47,6 +47,14 @@ data_main_city_rank <- (data_main %>%
                           group_by(city) %>%
                           count(city, sort = TRUE,  name = "patents")) #ranking the cities according to the number of patent applications
 
+
+
+### exporting the dataset for further visualization
+library(writexl)
+write_xlsx(data_main_city_rank,"C:\\Study\\FSU MSc\\S22\\PatNet Sem\\Patnet_data_202101\\Patnet_data_202101\\REGPAT_202101\\Research Seminar\\f03d_city_1996-2016.xlsx")
+###
+
+
 data_main_15 <- head(data_main_city_rank,15) # keeping first 15 patent owning cities in ranked format
 data_main_15_attr <- (data_main %>%
                      filter(city %in% c("Aurich","Hamburg","Berlin","Salzbergen","Rendsburg","Rheine","Kiel","Aachen","Munchen","Norderstedt","Osnabruck","Bremen","Erlangen","Dresden","Munster"))) # keeping the most 15 patent owning cities with all attributes
@@ -58,15 +66,15 @@ plot_ly(data_main_15,
         y = data_main_15$patents,
         type = "bar",
         color = data_main_15$city,
+        showlegend = FALSE,
         colors=pal_jco()(10)) %>% 
-  layout(title = "Top 15 German Cities in Wind Motor Innovation",
+  layout(title = "Top 15 German Cities in Wind Motor Innovation\n1996-2016", #adding this part to make the x axis descending
          xaxis = list(title = "",
                       categoryorder = "array",
                       categoryarray = ~city),
          yaxis = list(title = "Number of patents")
          )
 
-?plot_ly
 
 # General mapping ----
 
@@ -282,26 +290,15 @@ library(network)
 library(ndtv)
 library(tidyverse)
 ### Aurich ----
-aurich_d_2007 <- (data_main_15_attr %>% 
-                    filter(city=="Aurich", app_year==2007) %>% 
-                    select(city, appln_id, inv_name))
 
-aurich_d_2016 <- (data_main_15_attr %>%
-                    filter(city=="Aurich", app_year==2016) %>%
-                    select(inv_name, appln_id))
-aurich_d_all <- (data_main_15_attr %>% 
-                   filter(city=="Aurich") %>% 
-                   select(appln_id, app_year))
-
-#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--
 #2006 network
-aurich_test_data_06 <- (data_main_15_attr %>%
+aurich_data_06 <- (data_main_15_attr %>%
                           filter(city=="Aurich", app_year>=1996 & app_year<=2006) %>%
                           select(inv_name, appln_id))
 
-aurich_test_06 <- table(aurich_test_data_06)
-dim(aurich_test_06)
-aurich_adj_06 <- aurich_test_06 %*% t(aurich_test_06)
+aurich_data_06 <- table(aurich_data_06)
+dim(aurich_data_06)
+aurich_adj_06 <- aurich_data_06 %*% t(aurich_data_06)
 dim(aurich_adj_06)
 class(aurich_adj_06)
 aurich_nw_06 <-  network(aurich_adj_06,
@@ -310,16 +307,16 @@ aurich_nw_06 <-  network(aurich_adj_06,
 
 
 #2016 network
-aurich_test_data_16 <- (data_main_15_attr %>%
-                          filter(city=="Aurich", app_year>=2007 & app_year<=2016) %>%
-                          select(inv_name, appln_id))
+aurich_data_16 <- (data_main_15_attr %>%
+                        filter(city=="Aurich", app_year>=2007 & app_year<=2016) %>%
+                        select(inv_name, appln_id))
 
-aurich_test <- table(aurich_test_data_16)
-dim(aurich_test)
-aurich_adj <- aurich_test %*% t(aurich_test)
-dim(aurich_adj)
-class(aurich_adj)
-aurich_nw <-  network(aurich_adj,
+aurich_data_16 <- table(aurich_data_16)
+dim(aurich_data_16)
+aurich_adj_16 <- aurich_data_16 %*% t(aurich_data_16)
+dim(aurich_adj_16)
+class(aurich_adj_16)
+aurich_nw_16 <-  network(aurich_adj_16,
                            matrix.type="adjacency",
                            directed=F)  # convert into 'network' format
 
@@ -334,6 +331,7 @@ plot.network(aurich_nw_06,
              vertex.border="black",
              main="Inventors Network for Aurich 1996:2006",
              pad=4,
+             frame = T,
              cex.main=.8)
 # plot for 2007:2016
 plot.network(aurich_nw,
@@ -341,45 +339,281 @@ plot.network(aurich_nw,
              vertex.cex=1,
              vertex.border="black",
              main="Inventors Network for Aurich 2007:2016",
+             frame = T,
              cex.main=.8)
 
-
-
-#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--#--
-
-?plot.network
-
-par(mar=c(0,0,0,0))
-plot.network(aurich_nw,
-             label = network.vertex.names(aurich_nw))
 
 
 
 ### Hamburg ----
 
-hamburg_data <- (data_main_15_attr %>%
-                   filter(city=="Hamburg", app_year==2016) %>%
-                   select(inv_name))
-hamburg_test <- table(hamburg_data)
-dim(hamburg_test)
-hamburg_adj <- hamburg_test %*% t(hamburg_test)
-dim(hamburg_adj)
-class(hamburg_adj)
-hamburg_nw <-  network(hamburg_adj,
+#2006 network
+hamburg_data_06 <- (data_main_15_attr %>%
+                          filter(city=="Hamburg", app_year>=1996 & app_year<=2006) %>%
+                          select(inv_name, appln_id))
+
+hamburg_data_06 <- table(hamburg_data_06)
+dim(hamburg_data_06)
+hamburg_adj_06 <- hamburg_data_06 %*% t(hamburg_data_06)
+dim(hamburg_adj_06)
+class(hamburg_adj_06)
+hamburg_nw_06 <-  network(hamburg_adj_06,
+                         matrix.type="adjacency",
+                         directed=F)  # convert into 'network' format
+
+
+#2016 network
+hamburg_data_16 <- (data_main_15_attr %>%
+                          filter(city=="Hamburg", app_year>=2007 & app_year<=2016) %>%
+                          select(inv_name, appln_id))
+
+hamburg_data_16 <- table(hamburg_data_16)
+dim(hamburg_data_16)
+hamburg_adj_16 <- hamburg_data_16 %*% t(hamburg_data_16)
+dim(hamburg_adj_16)
+class(hamburg_adj_16)
+hamburg_nw_16 <-  network(hamburg_adj_16,
                       matrix.type="adjacency",
-                      directed=T)  # convert into 'network' format
-print.network(hamburg_nw)
-
-plot.network(hamburg_nw)
-
-get.vetex.id(hamburg_nw)
-?get.edgeIDs()
+                      directed=F)  # convert into 'network' format
 
 
+par(mfrow = c(1,2))
+par(mar=c(0,0,1,0))
+
+#plot for 1996:2006
+plot.network(hamburg_nw_06,
+             vertex.col="#99B898",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for Hamburg 1996:2006",
+             frame = T,
+             pad=4,
+             cex.main=.8)
+# plot for 2007:2016
+plot.network(hamburg_nw_16,
+             vertex.col="#99B898",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for Hamburg 2007:2016",
+             frame = T,
+             cex.main=.8)
 
 
 
-### TEST Berlin ----
+
+
+
+### Berlin ----
+
+#2006 Network
+berlin_data_06 <- (data_main_15_attr %>%
+                      filter(city=="Berlin", app_year>=1996 & app_year<=2006) %>%
+                      select(inv_name, appln_id))
+
+berlin_data_06 <- table(berlin_data_06)
+dim(berlin_data_06)
+berlin_adj_06 <- berlin_data_06 %*% t(berlin_data_06)
+dim(berlin_adj_06)
+class(berlin_adj_06)
+berlin_nw_06 <-  network(berlin_adj_06,
+                          matrix.type="adjacency",
+                          directed=F)  # convert into 'network' format
+
+
+#2016 network
+berlin_data_16 <- (data_main_15_attr %>%
+                      filter(city=="Berlin", app_year>=2007 & app_year<=2016) %>%
+                      select(inv_name, appln_id))
+
+berlin_data_16 <- table(berlin_data_16)
+dim(berlin_data_16)
+berlin_adj_16 <- berlin_data_16 %*% t(berlin_data_16)
+dim(berlin_adj_16)
+class(berlin_adj_16)
+berlin_nw_16 <-  network(berlin_adj_16,
+                          matrix.type="adjacency",
+                          directed=F)  # convert into 'network' format
+
+
+par(mfrow = c(1,2))
+par(mar=c(0,0,1,0))
+
+#plot for 1996:2006
+plot.network(berlin_nw_06,
+             vertex.col="#F26B38",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for Berlin 1996:2006",
+             frame = T,
+             pad=4,
+             cex.main=.8)
+# plot for 2007:2016
+plot.network(berlin_nw_16,
+             vertex.col="#F26B38",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for Berlin 2007:2016",
+             frame = T,
+             cex.main=.8)
+
+## Salzbergen ----
+
+#2006 Network
+salzbergen_data_06 <- (data_main_15_attr %>%
+                         filter(city=="Salzbergen", app_year>=1996 & app_year<=2006) %>%
+                         select(inv_name, appln_id))
+
+salzbergen_data_06 <- table(salzbergen_data_06)
+dim(salzbergen_data_06)
+salzbergen_adj_06 <- salzbergen_data_06 %*% t(salzbergen_data_06)
+dim(salzbergen_adj_06)
+class(salzbergen_adj_06)
+salzbergen_nw_06 <-  network(salzbergen_adj_06,
+                         matrix.type="adjacency",
+                         directed=F)  # convert into 'network' format
+
+
+#2016 network
+salzbergen_data_16 <- (data_main_15_attr %>%
+                         filter(city=="Salzbergen", app_year>=2007 & app_year<=2016) %>%
+                         select(inv_name, appln_id))
+
+salzbergen_data_16 <- table(salzbergen_data_16)
+dim(salzbergen_data_16)
+salzbergen_adj_16 <- salzbergen_data_16 %*% t(salzbergen_data_16)
+dim(salzbergen_adj_16)
+class(salzbergen_adj_16)
+salzbergen_nw_16 <-  network(salzbergen_adj_16,
+                             matrix.type="adjacency",
+                             directed=F)  # convert into 'network' format
+
+
+par(mfrow = c(1,2))
+par(mar=c(0,0,1,0))
+
+#plot for 1996:2006
+plot.network(salzbergen_nw_06,
+             vertex.col="#594F4F",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for salzbergen 1996:2006",
+             frame = T,
+             pad=4,
+             cex.main=.8)
+# plot for 2007:2016
+plot.network(salzbergen_nw_16,
+             vertex.col="#594F4F",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for salzbergen 2007:2016",
+             frame = T,
+             cex.main=.8)
+
+network.size(salzbergen_nw_16)
+
+
+## Rendsburg ----
+
+#2006 Network
+
+rendsburg_data_06 <- (data_main_15_attr %>%
+                         filter(city=="Rendsburg", app_year>=1996 & app_year<=2006) %>%
+                         select(inv_name, appln_id))
+
+rendsburg_data_06 <- table(rendsburg_data_06)
+dim(rendsburg_data_06)
+rendsburg_adj_06 <- rendsburg_data_06 %*% t(rendsburg_data_06)
+dim(rendsburg_adj_06)
+class(rendsburg_adj_06)
+rendsburg_nw_06 <-  network(rendsburg_adj_06,
+                             matrix.type="adjacency",
+                             directed=F)  # convert into 'network' format
+
+
+#2016 network
+rendsburg_data_16 <- (data_main_15_attr %>%
+                         filter(city=="Rendsburg", app_year>=2007 & app_year<=2016) %>%
+                         select(inv_name, appln_id))
+
+rendsburg_data_16 <- table(rendsburg_data_16)
+dim(rendsburg_data_16)
+rendsburg_adj_16 <- rendsburg_data_16 %*% t(rendsburg_data_16)
+dim(rendsburg_adj_16)
+class(rendsburg_adj_16)
+rendsburg_nw_16 <-  network(rendsburg_adj_16,
+                             matrix.type="adjacency",
+                             directed=F)  # convert into 'network' format
+
+
+par(mfrow = c(1,2))
+par(mar=c(0,0,1,0))
+
+#plot for 1996:2006
+plot.network(rendsburg_nw_06,
+             vertex.col="#594F4F",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for Rendsburg 1996:2006",
+             frame = T,
+             pad=4,
+             cex.main=.8)
+# plot for 2007:2016
+plot.network(rendsburg_nw_16,
+             vertex.col="#594F4F",
+             vertex.cex=1,
+             vertex.border="black",
+             main="Inventors Network for Rendsburg 2007:2016",
+             frame = T,
+             cex.main=.8)
+
+
+
+# function testing ----
+
+x <- "Bremen"
+# fn 1996:2006
+create_data_06 <- function(x, data_main_15_attr)
+{
+  
+  (data_main %>%
+     filter(city==x, app_year>=1996 & app_year<=2006) %>%
+     select(inv_name, appln_id))
+}
+
+# fn 2007:2016
+create_data_16 <- function(x, data_main_15_attr)
+  {
+  
+  data_06 <-(data_main %>%
+               filter(city==x, app_year>=2007 & app_year<=2016) %>%
+               select(inv_name, appln_id))
+}
+
+create_network_06 <- function(x,x){
+  
+  data_06 <- table(data_06)
+  adj_06 <- data_06 %*% t(data_06)
+  dim(adj_06)
+  class(adj_06)
+  nw_06 <-  network(adj_06,
+                    matrix.type="adjacency",
+                    directed=F)  # convert into 'network' format
+  return(create_network_06(x))
+}
+
+
+create_network_06(x)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -389,9 +623,6 @@ get.vetex.id(hamburg_nw)
 ## Network measurements
 
 ## adjacency matrix
-inv_adj <- inv_2mode %*% t(inv_2mode)
-dim(inv_adj)
-class(inv_adj)
 
 
 
