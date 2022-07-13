@@ -1,7 +1,8 @@
 ---
-title: "PATNET Seminar Project"
+title: "PATNET Seminar Project Group C"
+subtitle:  "A Network Analysis on German Wind Motor Industry"
 author: "Jhalak Gope"
-date: '2022-06-21'
+date: '2022-07-13'
 output:
   html_document:
     code_download: true
@@ -30,7 +31,6 @@ suppressMessages(library(network))
 suppressMessages(library(igraphdata))
 suppressMessages(library(intergraph))
 suppressMessages(library(RColorBrewer))
-
 ```
 
 ## Loading Dataset
@@ -45,7 +45,7 @@ rm(joined_IPC_Inv) & rm(IPC4) # removing the dataset to free memory
 data_final <- subset(data_final, select = -c(IPC,ctry_code)) # dropping columns
 ```
 
-## Data cleaning
+## Data Cleaning
 
 ```{r data cleaning}
 data <- (data_final %>% 
@@ -92,19 +92,18 @@ plot_ly(data_main_15,
          )
 ```
 
-# Network Data Preparation (Using network and sna pckages)
+# Network Data Preparation (Using igraph and sna packages)
 
-## N1. Inventors networks for all cities
+## N1. Inventor networks for all cities
 
 ```{r inv net all cities}
 inv_aff_all <- (data_main %>% 
               select(appln_id,person_id))
 inv_aff_all_2mode <- table(inv_aff_all)
 inv_aff_all_adj <- inv_aff_all_2mode %*% t(inv_aff_all_2mode)
-inv_aff_all_nw <-  network(inv_aff_all_adj,
-                       matrix.type="adjacency",
-                       directed=F)  # convert into 'network' format
-print.network(inv_aff_all_nw) # Basic information about the network
+diag(inv_aff_all_adj) <-0 # deleting the diagonals
+inv_aff_all_ig <- graph.adjacency(inv_aff_all_adj, mode = "undirected", weight = TRUE)
+print(inv_aff_all_ig) # Basic information about the network
 ```
 
 ## N2. City networks (for 15 most innovative cities)
@@ -114,13 +113,13 @@ inv_city <- (data_main_15_attr %>%
                select(city,appln_id))
 inv_city_2mode <-  table(inv_city)   # cross tabulate -> 2-mode sociomatrix
 inv_city_adj <- inv_city_2mode %*% t(inv_city_2mode)
-inv_city_nw <-  network(inv_city_adj,
-                        matrix.type="adjacency",
-                        directed=F)  # convert into 'network' format
-print.network(inv_city_nw) # basic information about the network
+diag(inv_city_adj) <-0 # deleting the diagonals
+inv_city_ig <- graph.adjacency(inv_city_adj, mode = "undirected", weight = TRUE)
+print(inv_city_ig) # basic information about the network
+
 ```
 
-## N3. Inventor's (person's) network
+## N3. Inventor's network of top 15 cities
 
 ```{r inv net}
 # inventor's data cleaning
@@ -158,12 +157,13 @@ inv_person_parsed <- subset(inv_person_parsed, select = -c(inv_name_small))
 # creating network with the cleaned data
 inv_person_2mode <- table(inv_person_parsed) # making 2 mode sociomatrix
 inv_person_adj <- inv_person_2mode %*% t(inv_person_2mode)
-inv_person_nw <- network(inv_person_adj,
-                         directed = F)
+diag(inv_person_adj) <-0
+inv_aff_ig <- graph.adjacency(inv_person_adj, mode = "undirected", weight = TRUE)
+
 
 ```
 
-# Conversion and plotting graphs
+# Creating Networks and Plotting Graphs
 
 Detaching packages to avoid conflicts between package operations.
 
@@ -173,11 +173,11 @@ detach(package:network)
 suppressMessages(library(igraph))
 ```
 
-## N1. Converting the network for all the inventors
+## N1. Creating the network for all the inventors
 
 ```{r conv. n1}
-inv_aff_ig <- asIgraph(inv_aff_all_nw)
-class(inv_aff_all)
+# matching the dataset with city and application ids
+inv_person_parsed$city <- inv_per_attr$city[match(inv_person_parsed$appln_id, inv_person_parsed$appln_id)]
 ```
 
 ### N1. Plotting
@@ -185,19 +185,16 @@ class(inv_aff_all)
 ```{r n1 plot, fig.height=7, fig.width=7}
 set.seed(100)
 par(mar=c(0,0,1,0))
-plot(inv_aff_ig,
-     layout = layout.auto(inv_aff_ig),
-     vertex.size = 2,
-     vertex.label = NA,
+plot(inv_aff_all_ig,
+     vertex.label=NA,
+     vertex.size = 3,
+     vertex.color = V(inv_aff_all_ig),
      main="Network of all the inventors")
 ```
 
-## N2. Converting the network package object into igraph object (for 15 cities)
+## N2. Creating network for 15 cities
 
 ```{r conv. n2}
-inv_city_ig <- asIgraph(inv_city_nw)
-class(inv_city_ig)
-
 inv_city_ig <- (inv_city_ig %>% 
                   set_vertex_attr(
                     name = "vertex.names",
@@ -231,18 +228,12 @@ plot(inv_city_ig,
      main="Network of top 15 cities \n (according to their density)")
 ```
 
-## N3. Converting the network package object into igraph object (for 15 cities)
-
-```{r conv. n3}
-inv_person_ig <- asIgraph(inv_person_nw)
-set_vertex_attr(graph = inv_person_ig, name = "city", value = "city")
-```
-
+## N3. Plotting and centrality measurement of inventor's network (top 15 cities) 
 ### N3. Centrality Measurement
 
 ```{r n3 centrality}
 centr_degree(
-  inv_person_ig,
+  inv_aff_ig,
   mode = c("all", "out", "in", "total"),
   loops = F,
   normalized = TRUE)
@@ -253,34 +244,45 @@ centr_degree(
 #### General network graph
 
 ```{r general net plot, fig.height=6, fig.width=6}
-par(mar=c(0,0,1,0))
 set.seed(100)
-plot(inv_person_ig,
+par(mar=c(0,0,2,0))
+plot(inv_aff_ig,
      vertex.label=NA,
-     vertex.frame.color=NA,
-     vertex.color=V(inv_person_ig),
-     vertex.size=2,
-     edge.colour="black",
-     main="Inventor's network for top 15 cities",
-     sub=("(on edge betweenness of the inventors)"))
+     vertex.size=1.5,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig),
+     main="Inventor network of top 15 cities\nfor 1996-2016")
 ```
 
-#### plotting with edge betweenness
+#### Plotting with density
 
-```{r  edge bet. plot, fig.height=6, fig.width=6}
+```{r  density plot, fig.height=6, fig.width=6}
+set.seed(100)
 par(mar=c(0,0,1,0))
-plot(inv_person_ig,
+plot(inv_aff_ig,
      vertex.label=NA,
-     vertex.frame.color=NA,
-     vertex.color=V(inv_person_ig),
-     vertex.size=2,
-     edge.curved=.1,
-     main="Inventor's network for top 15 cities",
-     sub=("(on edge betweenness of the inventors)"),
-     edge.width = edge_betweenness(inv_person_ig))
+     vertex.size=degree(inv_aff_ig)*1.5,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig),
+     main="Inventor network of top 15 cities\nfor 1996-2016\nwith degree measurement")
 ```
 
-# Top 5 city's innovation scenario over the time
+#### Plotting with density and edge betweenness
+
+```{r  density, eb plot, fig.height=6, fig.width=6}
+set.seed(100)
+par(mar=c(0,0,4,0))
+plot(inv_aff_ig,
+     vertex.label=NA,
+     vertex.frame.color="black",
+     vertex.color=V(inv_aff_ig),
+     vertex.size=degree(inv_aff_ig)*1.5,
+     edge.curved=.1,
+     main="Inventor network of top 15 cities\nfor 1996-2016\nwith degree measurement and edge betweenness",
+     edge.width = edge_betweenness(inv_aff_ig)*.8)
+```
+
+# Top 5 City's Innovation Scenario over the Time
 
 Detaching packages to avoid conflicts between package operations
 
@@ -348,7 +350,7 @@ plot.network(aurich_nw_16,
              main="Inventors Network for Aurich 2007:2016",
              frame = T,
              cex.main=.8)
-cat("Total nodes 1996-2006:", network.size(aurich_nw_06),"\nTotal nodes 1996-2006:", network.size(aurich_nw_16))
+cat("Total nodes 1996-2006:", network.size(aurich_nw_06),"\nTotal nodes 2007-2016:", network.size(aurich_nw_16))
 ```
 
 ## Hamburg
@@ -408,7 +410,7 @@ plot.network(hamburg_nw_16,
              main="Inventors Network for Hamburg 2007:2016",
              frame = T,
              cex.main=.8)
-cat("Total nodes 1996-2006:", network.size(hamburg_nw_06),"\nTotal nodes 1996-2006:", network.size(hamburg_nw_16))
+cat("Total nodes 1996-2006:", network.size(hamburg_nw_06),"\nTotal nodes 2007-2016:", network.size(hamburg_nw_16))
 ```
 
 ## Berlin
@@ -468,7 +470,7 @@ plot.network(berlin_nw_16,
              main="Inventors Network for Berlin 2007:2016",
              frame = T,
              cex.main=.8)
-cat("Total nodes 1996-2006:", network.size(berlin_nw_06),"\nTotal nodes 1996-2006:", network.size(berlin_nw_16))
+cat("Total nodes 1996-2006:", network.size(berlin_nw_06),"\nTotal nodes 2007-2016:", network.size(berlin_nw_16))
 
 ```
 
@@ -529,7 +531,7 @@ plot.network(salzbergen_nw_16,
              main="Inventors Network for salzbergen 2007:2016",
              frame = T,
              cex.main=.8)
-cat("Total nodes 1996-2006:", network.size(salzbergen_nw_06),"\nTotal nodes 1996-2006:", network.size(salzbergen_nw_16))
+cat("Total nodes 1996-2006:", network.size(salzbergen_nw_06),"\nTotal nodes 2007-2016:", network.size(salzbergen_nw_16))
 
 ```
 
@@ -591,5 +593,141 @@ plot.network(rendsburg_nw_16,
              main="Inventors Network for Rendsburg 2007:2016",
              frame = T,
              cex.main=.8)
-cat("Total nodes 1996-2006:", network.size(rendsburg_nw_06),"\nTotal nodes 1996-2006:", network.size(rendsburg_nw_16))
+cat("Total nodes 1996-2006:", network.size(rendsburg_nw_06),"\nTotal nodes 2007-2016:", network.size(rendsburg_nw_16))
+```
+
+# Position of the Top 5 Cities in 15 City's Network
+
+Detaching packages to avoid conflicts between package operations.
+
+```{r detaching libraries}
+detach(package:network)
+suppressMessages(library(igraph))
+```
+
+## Aurich
+
+```{r aurich position}
+## position of the cities in the overall network
+inv_person_parsed$city <- inv_per_attr$city[match(inv_person_parsed$appln_id, inv_person_parsed$appln_id)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+V(inv_aff_ig)$city_name <- inv_person_parsed$city[match(V(inv_aff_ig)$id, inv_person_parsed$inv_name)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+
+V(inv_aff_ig)$city_name_color <- ifelse(V(inv_aff_ig)$city_name == "Aurich", "red","azure1")
+#V(inv_aff_ig)$id[degree(inv_aff_ig)>5]
+#degree(inv_aff_ig)
+
+set.seed(100)
+par(mar=c(0,0,1,0))
+plot(inv_aff_ig,
+     layout = layout.auto(inv_aff_ig),
+     vertex.size = 3,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig)$city_name_color,
+     vertex.label = NA,
+     edge.color= "black",
+     main="Inventor's from Aurich in top 15 city's network")
+
+```
+
+## Hamburg
+
+```{r hamburg position}
+## position of the cities in the overall network
+inv_person_parsed$city <- inv_per_attr$city[match(inv_person_parsed$appln_id, inv_person_parsed$appln_id)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+V(inv_aff_ig)$city_name <- inv_person_parsed$city[match(V(inv_aff_ig)$id, inv_person_parsed$inv_name)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+
+V(inv_aff_ig)$city_name_color <- ifelse(V(inv_aff_ig)$city_name == "Hamburg", "blue","azure1")
+#V(inv_aff_ig)$id[degree(inv_aff_ig)>5]
+#degree(inv_aff_ig)
+
+set.seed(100)
+par(mar=c(0,0,1,0))
+plot(inv_aff_ig,
+     layout = layout.auto(inv_aff_ig),
+     vertex.size = 3,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig)$city_name_color,
+     vertex.label = NA,
+     edge.color= "black",
+     main="Inventor's from Hamburg in top 15 city's network")
+
+```
+
+## Berlin
+
+```{r berlin position}
+## position of the cities in the overall network
+inv_person_parsed$city <- inv_per_attr$city[match(inv_person_parsed$appln_id, inv_person_parsed$appln_id)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+V(inv_aff_ig)$city_name <- inv_person_parsed$city[match(V(inv_aff_ig)$id, inv_person_parsed$inv_name)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+
+V(inv_aff_ig)$city_name_color <- ifelse(V(inv_aff_ig)$city_name == "Berlin", "darkslategray4","azure1")
+#V(inv_aff_ig)$id[degree(inv_aff_ig)>5]
+#degree(inv_aff_ig)
+
+set.seed(100)
+par(mar=c(0,0,1,0))
+plot(inv_aff_ig,
+     layout = layout.auto(inv_aff_ig),
+     vertex.size = 3,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig)$city_name_color,
+     vertex.label = NA,
+     edge.color= "black",
+     main="Inventor's from Berlin in top 15 city's network")
+```
+
+## Salzbergen
+
+```{r salzbergen position}
+## position of the cities in the overall network
+inv_person_parsed$city <- inv_per_attr$city[match(inv_person_parsed$appln_id, inv_person_parsed$appln_id)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+V(inv_aff_ig)$city_name <- inv_person_parsed$city[match(V(inv_aff_ig)$id, inv_person_parsed$inv_name)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+
+V(inv_aff_ig)$city_name_color <- ifelse(V(inv_aff_ig)$city_name == "Salzbergen", "darkorange1","azure1")
+#V(inv_aff_ig)$id[degree(inv_aff_ig)>5]
+#degree(inv_aff_ig)
+
+set.seed(100)
+par(mar=c(0,0,1,0))
+plot(inv_aff_ig,
+     layout = layout.auto(inv_aff_ig),
+     vertex.size = 3,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig)$city_name_color,
+     vertex.label = NA,
+     edge.color= "black",
+     main="Inventor's from Salzbergen in top 15 city's network")
+```
+
+## Rendsburg
+
+```{r rendsburg position}
+## position of the cities in the overall network
+inv_person_parsed$city <- inv_per_attr$city[match(inv_person_parsed$appln_id, inv_person_parsed$appln_id)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+V(inv_aff_ig)$city_name <- inv_person_parsed$city[match(V(inv_aff_ig)$id, inv_person_parsed$inv_name)]
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+
+V(inv_aff_ig)$city_name_color <- ifelse(V(inv_aff_ig)$city_name == "Rendsburg", "darkmagenta","azure1")
+#V(inv_aff_ig)$id[degree(inv_aff_ig)>5]
+#degree(inv_aff_ig)
+
+set.seed(100)
+par(mar=c(0,0,1,0))
+plot(inv_aff_ig,
+     layout = layout.auto(inv_aff_ig),
+     vertex.size = 3,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig)$city_name_color,
+     vertex.label = NA,
+     edge.color= "black",
+     main="Inventor's from Rendsburg in top 15 city's network")
 ```

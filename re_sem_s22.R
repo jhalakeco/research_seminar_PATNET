@@ -93,9 +93,11 @@ shape_de <- read_sf("./shape_files_DE/gadm40_DEU_4.shp") # loading shape file fo
 plot(shape_de, max.plot = 3)
 View(head(map_de,10))
 colnames(shape_de)[7] <- "city"
-map_de <- merge(shape_de, data_main, by="city")
+map_de_plotted <- merge(shape_de, data_main, by="city")
 
-plot(st_geometry(map_de))
+
+plot(st_geometry(map_de_plotted))
+
 
 
 # Creating network objects (NETWORK and SNA)----
@@ -171,43 +173,53 @@ inv_person_parsed$inv_name <- inv_person_parsed$inv_name_small
 # removing third column
 inv_person_parsed <- subset(inv_person_parsed, select = -c(inv_name_small))
 
-# creating network with the cleaned data
+# matching the parsed data with cities
+inv_person_parsed$city <- inv_per_attr$city[match(inv_person_parsed$appln_id, inv_person_parsed$appln_id)]
+
+# creating network
 inv_person_2mode <- table(inv_person_parsed) # making 2 mode sociomatrix
-dim(inv_person_2mode)
-class(inv_person_2mode)
 inv_person_adj <- inv_person_2mode %*% t(inv_person_2mode)
-dim(inv_person_adj)
-class(inv_person_adj)
-
-
-inv_person_nw <- network(inv_person_adj,
-                         directed = F)
-par(mar=c(0,0,0,0))
-
-
-get.vertex.attribute(inv_person_nw, "vertex.names")
-
 
 # Converting network objects into igraph object ----
 # detaching packages to avoid conflicts between package operations
 detach(package:sna)
 detach(package:network)
-
+suppressMessages(library(igraph))
 
 ## A1 Converting the network for all the inventors----
 
-inv_aff_ig <- asIgraph(inv_aff_all_nw)
+diag(inv_person_adj) <-0
+
+inv_aff_ig <- graph.adjacency(inv_person_adj, mode = "undirected", weight = TRUE)
+vcount(inv_aff_ig)
+
+
 class(inv_aff_all)
+class(inv_aff_ig)
+
+V(inv_aff_ig)$id <- colnames(inv_person_adj)
+V(inv_aff_ig)$city_name <- inv_person_parsed$city[match(V(inv_aff_ig)$id, inv_person_parsed$inv_name)]
 
 ### A1 plotting ----
+# without density
 set.seed(100)
-par(mar=c(0,0,1,0))
+par(mar=c(0,0,7,0))
 plot(inv_aff_ig,
-     layout = layout.auto(inv_aff_ig),
-     vertex.size = 2,
-     vertex.label = NA,
-     main="Network of all the inventors")
+     vertex.label=NA,
+     vertex.size=1.5,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig),
+     main="Network of all the inventors\n(representing all the cities from 1996-2016)")
 
+# with density
+set.seed(100)
+par(mar=c(0,0,7,0))
+plot(inv_aff_ig,
+     vertex.label=NA,
+     vertex.size=degree(inv_aff_ig)*1.5,
+     vertex.frame.color="black",
+     vertex.color = V(inv_aff_ig),
+     main="Network of all the inventors\n(representing all the cities from 1996-2016)\nwith degree of the innventors")
 
 ## A2. Converting the network package object into igraph object (for 15 cities)----
 inv_city_ig <- asIgraph(inv_city_nw)
@@ -231,7 +243,7 @@ plot(inv_city_ig,
      vertex.frame.color=NA,
      vertex.label.family= "Cambria",
      vertex.label.font=2,
-     main="Network of top 15 cities \n (according to their density)")
+     main="Network of top 15 cities \n (according to their degree)")
 
 #### A2 Centrality measurements----
 centr_degree(
@@ -256,8 +268,7 @@ plot(inv_person_ig,
      vertex.color=V(inv_person_ig),
      vertex.size=2,
      edge.colour="black",
-     main="Inventor's network for top 15 cities",
-     sub=("(on edge betweenness of the inventors)"))
+     main="Inventor's network for top 15 cities")
 
 #### plot with edge betweenness ----
 par(mar=c(0,0,1,0))
@@ -565,6 +576,34 @@ plot.network(rendsburg_nw_16,
              main="Inventors Network for Rendsburg 2007:2016",
              frame = T,
              cex.main=.8)
+
+# Position of the city networks ----
+## Aurich ----
+
+
+
+
+
+
+
+
+
+
+# Mapping ----
+
+
+
+library(raster)
+library(sf)
+library(ggplot2)
+
+
+germany <- getData('GADM', country='DE', level=3)
+ggplot(germany,aes(x=long,y=lat,group=group))+
+  geom_polygon(aes(fill=id),color="grey30")
+
+
+
 
 
 
